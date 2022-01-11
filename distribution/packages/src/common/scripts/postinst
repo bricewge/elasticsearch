@@ -55,6 +55,23 @@ esac
 if command -v systemctl > /dev/null; then
     systemctl restart systemd-sysctl.service || true
 fi
+
+# the equivalent code for rpm is in posttrans
+if [ "$PACKAGE" = "deb" ]; then
+    if [ ! -f "${ES_PATH_CONF}"/elasticsearch.keystore ]; then
+        /usr/share/elasticsearch/bin/elasticsearch-keystore create
+        chown root:elasticsearch "${ES_PATH_CONF}"/elasticsearch.keystore
+        chmod 660 "${ES_PATH_CONF}"/elasticsearch.keystore
+    else
+        if /usr/share/elasticsearch/bin/elasticsearch-keystore has-passwd --silent ; then
+          echo "### Warning: unable to upgrade encrypted keystore" 1>&2
+          echo " Please run elasticsearch-keystore upgrade and enter password" 1>&2
+        else
+          /usr/share/elasticsearch/bin/elasticsearch-keystore upgrade
+        fi
+    fi
+fi
+
 if [ "x$IS_UPGRADE" != "xtrue" ]; then
     # Don't exit immediately on error, we want to hopefully print some helpful banners
     set +e
@@ -131,22 +148,6 @@ elif [ "$RESTART_ON_UPGRADE" = "true" ]; then
         systemctl restart elasticsearch.service || true
     fi
     echo " OK"
-fi
-
-# the equivalent code for rpm is in posttrans
-if [ "$PACKAGE" = "deb" ]; then
-    if [ ! -f "${ES_PATH_CONF}"/elasticsearch.keystore ]; then
-        /usr/share/elasticsearch/bin/elasticsearch-keystore create
-        chown root:elasticsearch "${ES_PATH_CONF}"/elasticsearch.keystore
-        chmod 660 "${ES_PATH_CONF}"/elasticsearch.keystore
-    else
-        if /usr/share/elasticsearch/bin/elasticsearch-keystore has-passwd --silent ; then
-          echo "### Warning: unable to upgrade encrypted keystore" 1>&2
-          echo " Please run elasticsearch-keystore upgrade and enter password" 1>&2
-        else
-          /usr/share/elasticsearch/bin/elasticsearch-keystore upgrade
-        fi
-    fi
 fi
 
 @scripts.footer@
